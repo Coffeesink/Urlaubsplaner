@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Urlaubsplaner</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --text: #1d2330; --muted: #667085; --line: #d9dde5;
+    --accent: #2457c5; --accent-text: #fff; --weekend: #eceef2; --holiday: #e3e7ef;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171d; --card:#1d222b; --text:#e8ebf1; --muted:#9aa3b2; --line:#343b48;
+      --accent:#6c97f0; --accent-text:#0d1220; --weekend:#252b36; --holiday:#2d3442; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:12px 16px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  header h1 { font-size:18px; margin:0 12px 0 0; }
+  nav { display:flex; gap:4px; flex-wrap:wrap; }
+  nav button { border:1px solid transparent; background:none; color:var(--text); padding:7px 14px; border-radius:8px; cursor:pointer; font:inherit; }
+  nav button.active { background:var(--accent); color:var(--accent-text); }
+  nav button:not(.active):hover { background:var(--bg); }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  h2 { font-size:17px; margin:0 0 4px; } h3 { font-size:15px; margin:0 0 8px; }
+  .hint { color:var(--muted); font-size:13px; margin:0 0 12px; }
+  input, select, button.btn { font:inherit; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:6px; padding:6px 8px; }
+  input[type=color] { padding:1px; width:44px; height:32px; }
+  input[type=number] { width:90px; }
+  button.btn { cursor:pointer; } button.btn:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  button.danger { color:#c0392b; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+  .grow { flex:1; min-width:140px; }
+  .member-head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+  .member-head strong { font-size:16px; }
+  .tag { font-size:12px; color:var(--muted); }
+  table.grid { border-collapse:collapse; width:100%; }
+  .grid th, .grid td { border:1px solid var(--line); padding:3px 6px; text-align:center; font-size:13px; }
+  .grid thead th { background:var(--card); position:sticky; top:0; z-index:1; }
+  .grid td.date { text-align:left; white-space:nowrap; }
+  .grid tr.off td { background:var(--weekend); color:var(--muted); }
+  .grid tr.holiday td { background:var(--holiday); color:var(--muted); }
+  .grid tr.month td { background:var(--accent); color:var(--accent-text); font-weight:600; text-align:left; font-size:14px; }
+  .grid td.sum { font-weight:700; }
+  .grid tfoot td { font-weight:700; background:var(--bg); }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; margin:8px 0 12px; align-items:center; }
+  .legend span.sw { display:inline-block; width:14px; height:14px; border:1px solid var(--line); vertical-align:-2px; margin-right:4px; }
+  .stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .stat { border:1px solid var(--line); border-radius:8px; padding:8px 14px; }
+  .stat b { display:block; font-size:20px; }
+  .stat span { font-size:12px; color:var(--muted); }
+  .scroll { overflow-x:auto; }
+  .print-title { display:none; }
+  .subtabs { display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid var(--line); }
+  .subtabs button { border:none; border-bottom:3px solid transparent; background:none; color:var(--text); padding:8px 14px; cursor:pointer; font:inherit; }
+  .subtabs button.active { border-bottom-color:var(--accent); font-weight:600; }
+  .months { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
+  .month-box h3 { margin:0 0 4px; }
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .cw { text-align:center; font-size:11px; color:var(--muted); }
+  .day { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:38px; padding:2px; border:1px solid var(--line); border-radius:4px; background:var(--card); color:var(--text); font:inherit; font-size:12px; cursor:pointer; line-height:1.1; }
+  .day small { font-size:10px; font-weight:700; }
+  .day.we, .day.hol { background:var(--weekend); color:var(--muted); }
+  .day.hol { background:var(--holiday); }
+  .day.sel { outline:2px solid var(--accent); outline-offset:1px; }
+  [hidden] { display:none !important; }
+  .day-detail { position:sticky; bottom:8px; z-index:5; margin:16px 0 0; max-height:40vh; overflow:auto; box-shadow:0 -2px 12px rgba(0,0,0,.18); }
+  @media (max-width:600px) { main { padding:10px; } }
+  @media print {
+    @page { size: A4 portrait; margin: 10mm; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body { background:#fff; color:#000; font-size:10px; }
+    header, .noprint { display:none !important; }
+    main { max-width:none; padding:0; }
+    .card { border:none; padding:0; margin:0; }
+    .print-title { display:block; font-size:14px; margin-bottom:6px; }
+    .grid th, .grid td { padding:1px 4px; font-size:9px; }
+    .grid thead { display:table-header-group; } .grid tr { break-inside:avoid; }
+    .grid thead th { position:static; }
+    .scroll { overflow:visible; }
+    .months { grid-template-columns:repeat(3,1fr); gap:8px; }
+    .month-box { break-inside:avoid; } .day { min-height:26px; font-size:9px; } .day small { font-size:8px; }
+  }
+</style>
+</head>
+<body>
+<header class="noprint">
+  <h1>🏖️ Urlaubsplaner</h1>
+  <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+
+<script>
+"use strict";
+const KEY = "urlaubsplaner-v1";
+const TABS = [["team","Team"],["wishes","Urlaubswünsche"],["report","Auswertung"],["settings","Einstellungen"]];
+const WD = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+
+/* ---------- State ---------- */
+function defaultState() {
+  const now = new Date();
+  const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+  return {
+    year, members: [], holidays: [],
+    cellColor: "#bcd7ff",
+    colors: [
+      { min: 0.5, color: "#fff2a8" },
+      { min: 1.5, color: "#ffc27a" },
+      { min: 2.5, color: "#ff8f87" }
+    ]
+  };
+}
+let state = load();
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.members) return Object.assign(defaultState(), s); } catch (e) {}
+  return defaultState();
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+/* ---------- Helpers ---------- */
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "class") el.className = v;
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid.nodeType ? kid : document.createTextNode(kid));
+  return el;
+}
+const pad = n => String(n).padStart(2, "0");
+const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+function parseISO(s) { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); }
+function toISO(dt) { return iso(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()); }
+function fmtDate(s) { const [y, m, d] = s.split("-"); return `${d}.${m}.${y}`; }
+const fmtNum = n => (Math.round(n * 100) / 100).toLocaleString("de-DE", { maximumFractionDigits: 2 });
+function parseNum(s) { const n = parseFloat(String(s).replace(",", ".")); return isFinite(n) ? n : 0; }
+function easter(y) { // Gauß
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4,
+    f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), hh = (19 * a + b - d - g + 15) % 30,
+    i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - hh - k) % 7, m = Math.floor((a + 11 * hh + 22 * l) / 451),
+    month = Math.floor((hh + l - 7 * m + 114) / 31), day = ((hh + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(y, month - 1, day));
+}
+function nationalHolidays(y) {
+  const e = easter(y), off = n => { const d = new Date(e); d.setUTCDate(d.getUTCDate() + n); return toISO(d); };
+  return [
+    [iso(y, 0, 1), "Neujahr"], [off(-2), "Karfreitag"], [off(1), "Ostermontag"], [iso(y, 4, 1), "Tag der Arbeit"],
+    [off(39), "Christi Himmelfahrt"], [off(50), "Pfingstmontag"], [iso(y, 9, 3), "Tag der Deutschen Einheit"],
+    [iso(y, 11, 25), "1. Weihnachtstag"], [iso(y, 11, 26), "2. Weihnachtstag"]
+  ].map(([date, name]) => ({ date, name }));
+}
+
+/* ---------- Tabs ---------- */
+let tab = "team";
+function showTab(t) {
+  tab = t;
+  document.getElementById("nav").replaceChildren(...TABS.map(([id, label]) =>
+    h("button", { class: id === tab ? "active" : "", onclick: () => showTab(id) }, label)));
+  const main = document.getElementById("main");
+  main.replaceChildren({ team: viewTeam, wishes: viewWishes, settings: viewSettings, report: viewReport }[tab]());
+}
+
+/* ---------- Team ---------- */
+function viewTeam() {
+  const root = h("div");
+  const list = h("div");
+  const draw = () => {
+    list.replaceChildren(...state.members.map(m => h("div", { class: "row" },
+      h("input", { class: "grow", value: m.name, placeholder: "Name", onchange: e => { m.name = e.target.value.trim(); save(); } }),
+      h("label", {}, "Faktor ",
+        h("input", { type: "text", inputmode: "decimal", style: "width:70px", value: String(m.factor).replace(".", ","),
+          onchange: e => { m.factor = Math.max(0, parseNum(e.target.value)); e.target.value = String(m.factor).replace(".", ","); save(); } })),
+      h("button", { class: "btn danger", onclick: () => { if (confirm(`„${m.name || "Teammitglied"}“ samt Urlaubswünschen löschen?`)) { state.members = state.members.filter(x => x !== m); save(); draw(); } } }, "Löschen"))));
+    if (!state.members.length) list.append(h("p", { class: "hint" }, "Noch keine Teammitglieder angelegt."));
+  };
+  draw();
+  root.append(h("div", { class: "card" },
+    h("h2", {}, "Teammitglieder"),
+    h("p", { class: "hint" }, "Faktor = Anteil an einer vollen Stelle (z. B. 0,5 = halbe Stelle, 1 = Vollzeit)."),
+    list,
+    h("button", { class: "btn primary", onclick: () => { state.members.push({ id: uid(), name: "", factor: 1, ranges: [] }); save(); draw(); list.querySelector(".row:last-child input").focus(); } }, "+ Teammitglied")));
+  return root;
+}
+
+/* ---------- Urlaubswünsche ---------- */
+function countWorkdays(from, to) { // Mo–Fr ohne Feiertage
+  if (!from || !to || to < from) return 0;
+  const hol = new Set(state.holidays.map(x => x.date));
+  let n = 0;
+  for (let d = parseISO(from), e = parseISO(to); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6 && !hol.has(toISO(d))) n++;
+  }
+  return n;
+}
+function viewWishes() {
+  const root = h("div");
+  if (!state.members.length) return h("div", { class: "card" }, "Bitte zuerst Teammitglieder anlegen.");
+  root.append(h("p", { class: "hint" }, "Pro Teammitglied beliebig viele Zeiträume. Wochenenden und Feiertage zählen in der Auswertung nicht mit."));
+  for (const m of state.members) {
+    const rows = h("div");
+    const draw = () => {
+      rows.replaceChildren(...m.ranges.map(r => {
+        const cnt = h("span", { class: "tag", style: "display:inline-block;min-width:110px" });
+        const upd = () => { const n = countWorkdays(r.from, r.to); cnt.textContent = `${n} ${n === 1 ? "Urlaubstag" : "Urlaubstage"}`; };
+        const to = h("input", { type: "date", value: r.to, onchange: e => { r.to = e.target.value; save(); upd(); } });
+        upd();
+        return h("div", { class: "row" },
+          h("label", {}, "von ", h("input", { type: "date", value: r.from, onchange: e => {
+            r.from = e.target.value; if (!r.to || r.to < r.from) { r.to = r.from; to.value = r.to; } save(); upd(); } })),
+          h("label", {}, "bis ", to),
+          cnt,
+          h("button", { class: "btn danger", onclick: () => { m.ranges = m.ranges.filter(x => x !== r); save(); draw(); } }, "Entfernen"));
+      }));
+    };
+    draw();
+    root.append(h("div", { class: "card" },
+      h("div", { class: "member-head" }, h("strong", {}, m.name || "(ohne Name)"), h("span", { class: "tag" }, `Faktor ${fmtNum(m.factor)}`)),
+      rows,
+      h("button", { class: "btn", onclick: () => { const d = iso(state.year, 0, 1); m.ranges.push({ from: d, to: d }); save(); draw(); } }, "+ Zeitraum")));
+  }
+  return root;
+}
+
+/* ---------- Einstellungen ---------- */
+function viewSettings() {
+  const root = h("div");
+
+  const yearIn = h("input", { type: "number", value: state.year, min: 2000, max: 2100,
+    onchange: e => { state.year = parseInt(e.target.value) || state.year; save(); } });
+  root.append(h("div", { class: "card" }, h("h2", {}, "Planungsjahr"), h("div", { class: "row" }, yearIn)));
+
+  // Feiertage
+  const hl = h("div");
+  const drawH = () => {
+    state.holidays.sort((a, b) => a.date.localeCompare(b.date));
+    hl.replaceChildren(...state.holidays.map(x => h("div", { class: "row" },
+      h("input", { type: "date", value: x.date, onchange: e => { x.date = e.target.value; save(); } }),
+      h("input", { class: "grow", value: x.name, placeholder: "Bezeichnung", onchange: e => { x.name = e.target.value; save(); } }),
+      h("button", { class: "btn danger", onclick: () => { state.holidays = state.holidays.filter(y => y !== x); save(); drawH(); } }, "Entfernen"))));
+    if (!state.holidays.length) hl.append(h("p", { class: "hint" }, "Keine Feiertage eingetragen."));
+  };
+  drawH();
+  root.append(h("div", { class: "card" },
+    h("h2", {}, "Feiertage"),
+    h("p", { class: "hint" }, "Feiertage werden in der Auswertung markiert und zählen nicht als Urlaubstage. Regionale Feiertage bitte von Hand ergänzen."),
+    hl,
+    h("div", { class: "row" },
+      h("button", { class: "btn", onclick: () => { state.holidays.push({ date: iso(state.year, 0, 1), name: "" }); save(); drawH(); } }, "+ Feiertag"),
+      h("button", { class: "btn", onclick: () => {
+        for (const f of nationalHolidays(state.year)) if (!state.holidays.some(x => x.date === f.date)) state.holidays.push(f);
+        save(); drawH();
+      } }, "Bundesweite Feiertage für das Planungsjahr einfügen"))));
+
+  // Farben
+  const cl = h("div");
+  const drawC = () => {
+    state.colors.sort((a, b) => a.min - b.min);
+    cl.replaceChildren(...state.colors.map(c => h("div", { class: "row" },
+      "Ab Summe ",
+      h("input", { type: "text", inputmode: "decimal", style: "width:70px", value: String(c.min).replace(".", ","),
+        onchange: e => { c.min = parseNum(e.target.value); save(); drawC(); } }),
+      h("input", { type: "color", value: c.color, onchange: e => { c.color = e.target.value; save(); } }),
+      h("button", { class: "btn danger", onclick: () => { state.colors = state.colors.filter(x => x !== c); save(); drawC(); } }, "Entfernen"))));
+  };
+  drawC();
+  root.append(h("div", { class: "card" },
+    h("h2", {}, "Farbcodierung der Auswertung"),
+    h("p", { class: "hint" }, "Die Tagessumme wird ab dem jeweiligen Schwellwert in der angegebenen Farbe dargestellt (es gilt der höchste erreichte Schwellwert)."),
+    h("div", { class: "row" }, "Farbe der Einzelzellen mit Urlaub: ",
+      h("input", { type: "color", value: state.cellColor, onchange: e => { state.cellColor = e.target.value; save(); } })),
+    cl,
+    h("button", { class: "btn", onclick: () => { state.colors.push({ min: (state.colors.at(-1)?.min ?? 0) + 1, color: "#ff8f87" }); save(); drawC(); } }, "+ Schwellwert")));
+
+  // Daten
+  const file = h("input", { type: "file", accept: "application/json", style: "display:none", onchange: async e => {
+    try { const s = JSON.parse(await e.target.files[0].text()); if (!s.members) throw 0; state = Object.assign(defaultState(), s); save(); showTab("settings"); }
+    catch { alert("Datei konnte nicht gelesen werden."); }
+  } });
+  root.append(h("div", { class: "card" },
+    h("h2", {}, "Daten"),
+    h("p", { class: "hint" }, "Die Daten liegen im Browser dieses Geräts (localStorage). Zum Sichern oder Teilen als Datei exportieren."),
+    h("div", { class: "row" },
+      h("button", { class: "btn", onclick: () => {
+        const a = h("a", { href: URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" })), download: `urlaubsplaner-${state.year}.json` });
+        a.click();
+      } }, "Exportieren"),
+      h("button", { class: "btn", onclick: () => file.click() }, "Importieren"), file,
+      h("button", { class: "btn danger", onclick: () => { if (confirm("Alle Daten löschen?")) { state = defaultState(); save(); showTab("settings"); } } }, "Alles zurücksetzen"))));
+  return root;
+}
+
+/* ---------- Auswertung ---------- */
+function colorFor(sum) {
+  let c = null;
+  for (const t of [...state.colors].sort((a, b) => a.min - b.min)) if (sum >= t.min - 1e-9) c = t.color;
+  return c;
+}
+function viewReport() {
+  const y = state.year, members = state.members;
+  const hol = new Map(state.holidays.map(x => [x.date, x.name || "Feiertag"]));
+  // Urlaubstage je Mitglied (Set, damit sich überlappende Zeiträume nicht doppelt zählen)
+  const days = members.map(m => {
+    const set = new Set();
+    for (const r of m.ranges) {
+      if (!r.from || !r.to) continue;
+      for (let d = parseISO(r.from), e = parseISO(r.to); d <= e; d.setUTCDate(d.getUTCDate() + 1)) set.add(toISO(d));
+    }
+    return set;
+  });
+  const teamCapacity = members.reduce((s, m) => s + m.factor, 0);
+
+  const tbody = h("tbody");
+  const info = new Map();
+  const memberTotals = members.map(() => 0), memberDays = members.map(() => 0);
+  let grand = 0, lastMonth = -1;
+  const cols = members.length + 2;
+  for (let d = new Date(Date.UTC(y, 0, 1)); d.getUTCFullYear() === y; d.setUTCDate(d.getUTCDate() + 1)) {
+    const key = toISO(d), mo = d.getUTCMonth(), wd = d.getUTCDay();
+    if (mo !== lastMonth) { lastMonth = mo; tbody.append(h("tr", { class: "month" }, h("td", { colspan: cols }, `${MONTHS[mo]} ${y}`))); }
+    const weekend = wd === 0 || wd === 6, holiday = hol.get(key);
+    const free = weekend || holiday;
+    const label = `${WD[wd]} ${pad(d.getUTCDate())}.${pad(mo + 1)}.` + (holiday ? ` ${holiday}` : "");
+    const tr = h("tr", { class: holiday ? "holiday" : weekend ? "off" : "" }, h("td", { class: "date" }, label));
+    let sum = 0;
+    const who = [];
+    members.forEach((m, i) => {
+      const on = !free && days[i].has(key);
+      if (on) { sum += m.factor; memberTotals[i] += m.factor; memberDays[i]++; who.push(m); }
+      tr.append(h("td", { style: on && m.factor > 0 ? `background:${state.cellColor};color:#000` : false }, on ? fmtNum(m.factor) : ""));
+    });
+    grand += sum;
+    info.set(key, { sum, who, weekend, holiday, wd });
+    const c = sum > 0 ? colorFor(sum) : null;
+    tr.append(h("td", { class: "sum", style: c ? `background:${c};color:#000` : false }, sum > 0 ? fmtNum(sum) : ""));
+    tbody.append(tr);
+  }
+
+  const head = h("thead", {}, h("tr", {}, h("th", {}, "Tag"), members.map(m => h("th", {}, `${m.name || "?"} (${fmtNum(m.factor)})`)), h("th", {}, "Summe")));
+  const foot = h("tfoot", {},
+    h("tr", {}, h("td", { class: "date" }, "Urlaubstage"), memberDays.map(n => h("td", {}, n)), h("td", {}, memberDays.reduce((a, b) => a + b, 0))),
+    h("tr", {}, h("td", { class: "date" }, "Stellensumme"), memberTotals.map(n => h("td", {}, fmtNum(n))), h("td", {}, fmtNum(grand))));
+
+  const sorted = [...state.colors].sort((a, b) => a.min - b.min);
+  const legend = h("div", { class: "legend" },
+    h("span", {}, h("span", { class: "sw", style: `background:${state.cellColor}` }), "Urlaub (Stellenfaktor)"),
+    sorted.map((c, i) => h("span", {}, h("span", { class: "sw", style: `background:${c.color}` }),
+      `Tagessumme ab ${fmtNum(c.min)}` + (sorted[i + 1] ? ` bis < ${fmtNum(sorted[i + 1].min)}` : ""))),
+    h("span", {}, h("span", { class: "sw", style: "background:var(--weekend)" }), "Wochenende / Feiertag (zählt nicht)"));
+
+  return h("div", { class: "card" },
+    h("div", { class: "row noprint" },
+      h("h2", { class: "grow" }, `Auswertung ${y}`),
+      h("button", { class: "btn primary", onclick: () => window.print() }, "🖨️ Drucken")),
+    h("h2", { class: "print-title" }, `Urlaubsplanung ${y}`),
+    h("div", { class: "stats" },
+      h("div", { class: "stat" }, h("b", {}, fmtNum(grand)), h("span", {}, "Summe Stellenfaktor-Urlaubstage (Team)")),
+      h("div", { class: "stat" }, h("b", {}, fmtNum(teamCapacity)), h("span", {}, "Stellensumme des Teams")),
+      h("div", { class: "stat" }, h("b", {}, members.length), h("span", {}, "Teammitglieder"))),
+    legend,
+    h("div", { class: "subtabs noprint" }, [["compact", "Kompakt"], ["details", "Details"]].map(([id, label]) =>
+      h("button", { class: id === reportTab ? "active" : "", onclick: () => { reportTab = id; showTab("report"); } }, label))),
+    !members.length ? h("p", { class: "hint" }, "Bitte zuerst Teammitglieder und Urlaubswünsche erfassen.")
+      : reportTab === "details" ? h("div", { class: "scroll" }, h("table", { class: "grid" }, head, tbody, foot))
+      : compactView(y, info));
+}
+
+let reportTab = "compact";
+function compactView(y, info) {
+  const panel = h("div", { class: "card day-detail noprint", hidden: "" });
+  let selected = null;
+  const hideDay = () => { selected?.classList.remove("sel"); selected = null; panel.hidden = true; };
+  const showDay = (key, btn) => {
+    selected?.classList.remove("sel"); selected = btn; btn.classList.add("sel");
+    const i = info.get(key), dt = parseISO(key);
+    const note = i.holiday ? `Feiertag: ${i.holiday}` : i.weekend ? "Wochenende" : null;
+    panel.hidden = false;
+    panel.replaceChildren(...[
+      h("div", { class: "row", style: "justify-content:space-between;margin:0" },
+        h("h3", { style: "margin:0" }, `${WD[i.wd]}, ${fmtDate(key)}`),
+        h("button", { class: "btn", onclick: hideDay }, "Ausblenden")),
+      note ? h("p", { class: "hint" }, note + " – zählt nicht als Urlaubstag.") : null,
+      i.who.length
+        ? h("table", { class: "grid", style: "max-width:420px" },
+            h("thead", {}, h("tr", {}, h("th", {}, "Name"), h("th", {}, "Faktor"))),
+            h("tbody", {}, i.who.map(m => h("tr", {}, h("td", { style: "text-align:left" }, m.name || "?"), h("td", {}, fmtNum(m.factor))))),
+            h("tfoot", {}, h("tr", {}, h("td", { style: "text-align:left" }, "Summe"), h("td", {}, fmtNum(i.sum)))))
+        : (note ? null : h("p", {}, "Niemand hat Urlaub eingetragen.")) ].filter(Boolean));
+  };
+  const months = h("div", { class: "months" });
+  for (let mo = 0; mo < 12; mo++) {
+    const first = new Date(Date.UTC(y, mo, 1)), n = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+    const cal = h("div", { class: "cal" }, WD.slice(1).concat(WD[0]).map(w => h("div", { class: "cw" }, w)));
+    for (let k = 0; k < (first.getUTCDay() + 6) % 7; k++) cal.append(h("div"));
+    for (let d = 1; d <= n; d++) {
+      const key = iso(y, mo, d), i = info.get(key);
+      const col = i.sum > 0 ? (colorFor(i.sum) || state.cellColor) : null;
+      const btn = h("button", { class: "day" + (i.holiday ? " hol" : i.weekend ? " we" : ""), title: i.holiday || "",
+        style: col ? `background:${col};color:#000` : false, onclick: () => showDay(key, btn) },
+        h("span", {}, d));
+      cal.append(btn);
+    }
+    months.append(h("div", { class: "month-box" }, h("h3", {}, MONTHS[mo]), cal));
+  }
+  return h("div", {}, months, panel);
+}
+
+showTab("team");
+</script>
+</body>
+</html>
