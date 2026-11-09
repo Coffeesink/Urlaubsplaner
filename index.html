@@ -39,7 +39,13 @@
   .tag { font-size:12px; color:var(--muted); }
   table.grid { border-collapse:collapse; width:100%; }
   .grid th, .grid td { border:1px solid var(--line); padding:3px 6px; text-align:center; font-size:13px; }
-  .grid thead th { background:var(--card); position:sticky; top:var(--hh,0px); z-index:1; }
+  .grid thead th { background:var(--card); position:sticky; top:0; z-index:2; }
+  .grid td.date { position:sticky; left:0; z-index:1; background:var(--card); }
+  .grid thead th:first-child { left:0; z-index:3; }
+  .grid tfoot td.date { background:var(--bg); }
+  .grid th.m { padding:4px 2px; vertical-align:bottom; }
+  .grid th.m span { writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; display:inline-block; font-weight:600; }
+  .grid td.m, .grid th.m { min-width:26px; }
   .grid td.date { text-align:left; white-space:nowrap; }
   .grid tr.off td { background:var(--weekend); color:var(--muted); }
   .grid tr.holiday td { background:var(--holiday); color:var(--muted); }
@@ -52,7 +58,7 @@
   .stat { border:1px solid var(--line); border-radius:8px; padding:8px 14px; }
   .stat b { display:block; font-size:20px; }
   .stat span { font-size:12px; color:var(--muted); }
-  .scroll { overflow-x:auto; }
+  .scroll { overflow:auto; max-height:calc(100dvh - var(--hh,60px) - 24px); }
   .print-title { display:none; }
   .subtabs { display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid var(--line); }
   .subtabs button { border:none; border-bottom:3px solid transparent; background:none; color:var(--text); padding:8px 14px; cursor:pointer; font:inherit; }
@@ -83,10 +89,12 @@
     main { max-width:none; padding:0; }
     .card { border:none; padding:0; margin:0; }
     .print-title { display:block; font-size:14px; margin-bottom:6px; }
-    .grid th, .grid td { padding:1px 4px; font-size:9px; }
+    .grid th, .grid td { padding:1px 3px; font-size:9px; }
+    .grid td.m, .grid th.m { min-width:0; padding:2px 1px; }
+    .grid td.date, .grid thead th:first-child { position:static; }
     .grid thead { display:table-header-group; } .grid tr { break-inside:avoid; }
     .grid thead th { position:static; }
-    .scroll { overflow:visible; }
+    .scroll { overflow:visible; max-height:none; }
     .months { grid-template-columns:repeat(3,1fr); gap:8px; }
     .month-box { break-inside:avoid; } .day { min-height:26px; font-size:9px; } .day small { font-size:8px; }
   }
@@ -358,7 +366,7 @@ function viewReport() {
     members.forEach((m, i) => {
       const on = !free && days[i].has(key);
       if (on) { sum += m.factor; memberTotals[i] += m.factor; memberDays[i]++; who.push(m); }
-      tr.append(h("td", { style: on && m.factor > 0 ? `background:${state.cellColor};color:#000` : false }, on ? fmtNum(m.factor) : ""));
+      tr.append(h("td", { class: "m", style: on && m.factor > 0 ? `background:${state.cellColor};color:#000` : false }, on ? fmtNum(m.factor) : ""));
     });
     grand += sum;
     info.set(key, { sum, who, weekend, holiday, wd });
@@ -367,7 +375,7 @@ function viewReport() {
     tbody.append(tr);
   }
 
-  const head = h("thead", {}, h("tr", {}, h("th", {}, "Tag"), members.map(m => h("th", {}, `${m.name || "?"} (${fmtNum(m.factor)})`)), h("th", {}, "Summe")));
+  const head = h("thead", {}, h("tr", {}, h("th", {}, "Tag"), members.map(m => h("th", { class: "m", title: m.name }, h("span", {}, `${m.name || "?"} (${fmtNum(m.factor)})`))), h("th", {}, "Summe")));
   const foot = h("tfoot", {},
     h("tr", {}, h("td", { class: "date" }, "Urlaubstage"), memberDays.map(n => h("td", {}, n)), h("td", {}, memberDays.reduce((a, b) => a + b, 0))),
     h("tr", {}, h("td", { class: "date" }, "Stellensumme"), memberTotals.map(n => h("td", {}, fmtNum(n))), h("td", {}, fmtNum(grand))));
