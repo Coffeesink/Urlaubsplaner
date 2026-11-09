@@ -67,8 +67,11 @@
   .day.hol { background:var(--holiday); }
   .day.sel { outline:2px solid var(--accent); outline-offset:1px; }
   [hidden] { display:none !important; }
-  .day-detail { position:sticky; bottom:0; z-index:5; margin:16px 0 0; height:min(60vh,60dvh); min-height:200px; max-height:75dvh; padding:10px 14px; box-shadow:0 -2px 12px rgba(0,0,0,.18); display:flex; flex-direction:column; }
+  .day-detail { position:sticky; bottom:0; z-index:5; margin:16px 0 0; height:min(60vh,60dvh); min-height:120px; max-height:90dvh; padding:0 14px 10px; box-shadow:0 -2px 12px rgba(0,0,0,.18); display:flex; flex-direction:column; }
   .day-detail[hidden] { display:none !important; }
+  .dd-grip { flex:none; height:16px; margin:0 -14px; cursor:ns-resize; touch-action:none; display:flex; align-items:center; justify-content:center; }
+  .dd-grip::after { content:""; width:44px; height:4px; border-radius:2px; background:var(--line); }
+  .dd-grip:hover::after, .dd-grip.drag::after { background:var(--accent); }
   .dd-body { flex:1; min-height:0; overflow-y:auto; margin-top:8px; }
   .dd-body .grid thead th { top:0; }
   @media (max-width:600px) { main { padding:10px; } }
@@ -392,13 +395,31 @@ let reportTab = "compact";
 function compactView(y, info) {
   const panel = h("div", { class: "card day-detail noprint", hidden: "" });
   let selected = null;
+  let detailH = null;
+  try { detailH = parseInt(localStorage.getItem("urlaubsplaner-detailH")) || null; } catch (e) {}
+  const applyH = () => { if (detailH) panel.style.height = detailH + "px"; };
+  const grip = h("div", { class: "dd-grip", title: "Zum Ändern der Höhe ziehen" });
+  grip.addEventListener("pointerdown", ev => {
+    ev.preventDefault(); grip.setPointerCapture(ev.pointerId); grip.classList.add("drag");
+    const startY = ev.clientY, startH = panel.offsetHeight;
+    const move = e => {
+      detailH = Math.round(Math.min(innerHeight * 0.9, Math.max(120, startH + startY - e.clientY)));
+      panel.style.height = detailH + "px";
+    };
+    const up = () => {
+      grip.classList.remove("drag"); grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up);
+      try { localStorage.setItem("urlaubsplaner-detailH", detailH); } catch (e) {}
+    };
+    grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up);
+  });
+  applyH();
   const hideDay = () => { selected?.classList.remove("sel"); selected = null; panel.hidden = true; };
   const showDay = (key, btn) => {
     selected?.classList.remove("sel"); selected = btn; btn.classList.add("sel");
     const i = info.get(key), dt = parseISO(key);
     const note = i.holiday ? `Feiertag: ${i.holiday}` : i.weekend ? "Wochenende" : null;
     panel.hidden = false;
-    panel.replaceChildren(
+    panel.replaceChildren(grip,
       h("div", { class: "row", style: "justify-content:space-between;margin:0" },
         h("h3", { style: "margin:0" }, `${WD[i.wd]}, ${fmtDate(key)}`),
         h("button", { class: "btn", onclick: hideDay }, "Ausblenden")),
