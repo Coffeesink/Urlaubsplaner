@@ -112,6 +112,7 @@ function defaultState() {
   const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
   return {
     year, members: [], holidays: [],
+    cellColor: "#bcd7ff",
     colors: [
       { min: 0, color: "#c3e8c8" },
       { min: 0.5, color: "#fff2a8" },
@@ -123,10 +124,8 @@ function defaultState() {
 let state = load();
 function load() {
   try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.members) {
-      if (s.cellColor !== undefined) { // Migration: blaue Einzelzellfarbe entfällt, stattdessen grüne Stufe ab 0
-        delete s.cellColor;
-        if (Array.isArray(s.colors) && !s.colors.some(c => c.min <= 0)) s.colors.push({ min: 0, color: "#c3e8c8" });
-      }
+      if (s.cellColor !== undefined && Array.isArray(s.colors) && !s.colors.some(c => c.min <= 0)) // Migration: grüne Stufe ab 0 ergänzen
+        s.colors.push({ min: 0, color: "#c3e8c8" });
       return Object.assign(defaultState(), s);
     } } catch (e) {}
   return defaultState();
@@ -298,6 +297,8 @@ function viewSettings() {
   drawC();
   root.append(h("div", { class: "card" },
     h("h2", {}, "Farbcodierung der Auswertung"),
+    h("div", { class: "row" }, "Farbe der Einzelzellen mit Urlaub (Details-Tab): ",
+      h("input", { type: "color", value: state.cellColor, onchange: e => { state.cellColor = e.target.value; save(); } })),
     h("p", { class: "hint" }, "Tage mit Urlaub werden nach der Tagessumme eingefärbt: ab dem jeweiligen Schwellwert in der angegebenen Farbe (es gilt der höchste erreichte Schwellwert). Ein Schwellwert von 0 gilt für alle Tage mit mindestens einem Urlaub."),
     cl,
     h("button", { class: "btn", onclick: () => { state.colors.push({ min: (state.colors.at(-1)?.min ?? 0) + 1, color: "#ff8f87" }); save(); drawC(); } }, "+ Schwellwert")));
@@ -357,7 +358,7 @@ function viewReport() {
     members.forEach((m, i) => {
       const on = !free && days[i].has(key);
       if (on) { sum += m.factor; memberTotals[i] += m.factor; memberDays[i]++; who.push(m); }
-      tr.append(h("td", { style: on && m.factor > 0 ? "font-weight:700" : false }, on ? fmtNum(m.factor) : ""));
+      tr.append(h("td", { style: on && m.factor > 0 ? `background:${state.cellColor};color:#000` : false }, on ? fmtNum(m.factor) : ""));
     });
     grand += sum;
     info.set(key, { sum, who, weekend, holiday, wd });
@@ -373,6 +374,7 @@ function viewReport() {
 
   const sorted = [...state.colors].sort((a, b) => a.min - b.min);
   const legend = h("div", { class: "legend" },
+    reportTab === "details" ? h("span", {}, h("span", { class: "sw", style: `background:${state.cellColor}` }), "Urlaub (Stellenfaktor)") : null,
     sorted.map((c, i) => h("span", {}, h("span", { class: "sw", style: `background:${c.color}` }),
       (c.min <= 0 ? "Tagessumme über 0" : `Tagessumme ab ${fmtNum(c.min)}`) + (sorted[i + 1] ? ` bis < ${fmtNum(sorted[i + 1].min)}` : ""))),
     h("span", {}, h("span", { class: "sw", style: "background:var(--weekend)" }), "Wochenende / Feiertag (zählt nicht)"));
