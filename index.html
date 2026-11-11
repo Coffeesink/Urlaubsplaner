@@ -60,6 +60,9 @@
   .stat span { font-size:12px; color:var(--muted); }
   .scroll { overflow:auto; max-height:calc(100dvh - var(--hh,60px) - 24px); }
   .print-title { display:none; }
+  .wp { display:none; }
+  .wp-table { max-width:520px; margin:8px 0 12px; }
+  .wp-table td { text-align:left; }
   .subtabs { display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid var(--line); }
   .subtabs button { border:none; border-bottom:3px solid transparent; background:none; color:var(--text); padding:8px 14px; cursor:pointer; font:inherit; }
   .subtabs button.active { border-bottom-color:var(--accent); font-weight:600; }
@@ -95,6 +98,12 @@
     .grid thead { display:table-header-group; } .grid tr { break-inside:avoid; }
     .grid thead th { position:static; }
     .scroll { overflow:visible; max-height:none; }
+    .pw-screen { display:none !important; }
+    .wp { display:block; }
+    .wp-page { break-after:page; font-size:12px; }
+    .wp-page:last-child { break-after:auto; }
+    .wp-page h2 { font-size:18px; margin:0 0 4px; } .wp-page h3 { font-size:15px; margin:0 0 12px; }
+    .wp-table th, .wp-table td { font-size:12px; padding:4px 8px; }
     .months { grid-template-columns:repeat(3,1fr); gap:8px; }
     .month-box { break-inside:avoid; } .day { min-height:26px; font-size:9px; } .day small { font-size:8px; }
   }
@@ -232,7 +241,9 @@ function countWorkdays(from, to) { // Mo–Fr ohne Feiertage
 function viewWishes() {
   const root = h("div");
   if (!state.members.length) return h("div", { class: "card" }, "Bitte zuerst Teammitglieder anlegen.");
-  root.append(h("p", { class: "hint" }, "Pro Teammitglied beliebig viele Zeiträume. Wochenenden und Feiertage zählen in der Auswertung nicht mit."));
+  root.append(h("div", { class: "row noprint" },
+    h("p", { class: "hint grow", style: "margin:0" }, "Pro Teammitglied beliebig viele Zeiträume. Wochenenden und Feiertage zählen in der Auswertung nicht mit."),
+    h("button", { class: "btn primary", onclick: () => window.print() }, "🖨️ Übersichten drucken")));
   for (const m of state.members) {
     const rows = h("div");
     const total = h("span", { class: "tag", style: "margin-left:auto;font-weight:600" });
@@ -253,12 +264,34 @@ function viewWishes() {
       }));
     };
     draw();
-    root.append(h("div", { class: "card" },
+    root.append(h("div", { class: "card pw-screen" },
       h("div", { class: "member-head" }, h("strong", {}, m.name || "(ohne Name)"), h("span", { class: "tag" }, `Faktor ${fmtNum(m.factor)}`), total),
       rows,
       h("button", { class: "btn", onclick: () => { const d = iso(state.year, 0, 1); m.ranges.push({ from: d, to: d }); save(); draw(); } }, "+ Zeitraum")));
   }
+  root.append(wishesPrint());
   return root;
+}
+
+// Druckansicht: pro Teammitglied eine Seite mit allen Urlaubswünschen
+function wishesPrint() {
+  const wrap = h("div", { class: "wp" });
+  const fmtD = d => `${WD[parseISO(d).getUTCDay()]}, ${fmtDate(d)}`;
+  state.members.forEach(m => {
+    const ranges = m.ranges.filter(r => r.from && r.to && r.to >= r.from).sort((a, b) => a.from.localeCompare(b.from));
+    const n = totalWorkdays(m);
+    wrap.append(h("section", { class: "wp-page" },
+      h("h2", {}, `Urlaubswünsche ${state.year}`),
+      h("h3", {}, `${m.name || "(ohne Name)"} – Stellenfaktor ${fmtNum(m.factor)}`),
+      ranges.length
+        ? h("table", { class: "grid wp-table" },
+            h("thead", {}, h("tr", {}, h("th", {}, "Nr."), h("th", {}, "Von"), h("th", {}, "Bis"), h("th", {}, "Urlaubstage"))),
+            h("tbody", {}, ranges.map((r, k) => h("tr", {}, h("td", {}, k + 1), h("td", {}, fmtD(r.from)), h("td", {}, fmtD(r.to)), h("td", {}, countWorkdays(r.from, r.to))))),
+            h("tfoot", {}, h("tr", {}, h("td", { colspan: 3, style: "text-align:right" }, "Gesamt"), h("td", {}, `${n} ${n === 1 ? "Tag" : "Tage"}`))))
+        : h("p", {}, "Keine Urlaubswünsche eingetragen."),
+      h("p", { class: "hint" }, "Gezählt werden Werktage (Mo–Fr) ohne Feiertage; überlappende Zeiträume zählen nur einmal in der Gesamtsumme.")));
+  });
+  return wrap;
 }
 
 /* ---------- Einstellungen ---------- */
