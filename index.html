@@ -102,6 +102,10 @@
     .wp { display:block; }
     .wp-page { break-after:page; font-size:12px; }
     .wp-page:last-child { break-after:auto; }
+    body.wp-flow .wp-page { break-after:auto; break-inside:avoid; margin-bottom:18px; padding-bottom:10px; border-bottom:1px solid #999; }
+    body.wp-flow .wp-page:last-child { border-bottom:none; }
+    body.wp-flow .wp-page:not(:first-child) h2 { display:none; }
+    body.wp-flow .wp-page:not(:last-child) .hint { display:none; }
     .wp-page h2 { font-size:18px; margin:0 0 4px; } .wp-page h3 { font-size:15px; margin:0 0 12px; }
     .wp-table th, .wp-table td { font-size:12px; padding:4px 8px; }
     .months { grid-template-columns:repeat(3,1fr); gap:8px; }
@@ -249,7 +253,8 @@ function viewWishes() {
   if (!state.members.length) return h("div", { class: "card" }, "Bitte zuerst Teammitglieder anlegen.");
   root.append(h("div", { class: "row noprint" },
     h("p", { class: "hint grow", style: "margin:0" }, "Pro Teammitglied beliebig viele Zeiträume. Wochenenden und Feiertage zählen in der Auswertung nicht mit."),
-    h("button", { class: "btn primary", onclick: () => window.print() }, "🖨️ Übersichten drucken")));
+    h("button", { class: "btn primary", onclick: () => window.print() }, "🖨️ Übersichten drucken"),
+    h("button", { class: "btn primary", onclick: () => { document.body.classList.add("wp-flow"); window.print(); setTimeout(() => document.body.classList.remove("wp-flow"), 1000); } }, "🖨️ Gesamtübersicht drucken")));
   for (const m of state.members) {
     const rows = h("div");
     const total = h("span", { class: "tag", style: "margin-left:auto;font-weight:600" });
@@ -504,6 +509,7 @@ function compactView(y, info) {
 
 const syncHeader = () => document.documentElement.style.setProperty("--hh", document.querySelector("header").offsetHeight + "px");
 addEventListener("resize", syncHeader); syncHeader();
+addEventListener("afterprint", () => document.body.classList.remove("wp-flow"));
 showTab("team");
 </script>
 </body>
