@@ -102,6 +102,7 @@
     .wp { display:block; }
     .wp-page { break-after:page; font-size:12px; }
     .wp-page:last-child { break-after:auto; }
+    body.wp-one .wp-page:not(.wp-sel) { display:none; }
     body.wp-flow .wp-page { break-after:auto; break-inside:avoid; margin-bottom:18px; padding-bottom:10px; border-bottom:1px solid #999; }
     body.wp-flow .wp-page:last-child { border-bottom:none; }
     body.wp-flow .wp-page:not(:first-child) h2 { display:none; }
@@ -276,12 +277,23 @@ function viewWishes() {
     };
     draw();
     root.append(h("div", { class: "card pw-screen" },
-      h("div", { class: "member-head" }, h("strong", {}, m.name || "(ohne Name)"), h("span", { class: "tag" }, `Faktor ${fmtNum(m.factor)}`), total),
+      h("div", { class: "member-head" }, h("strong", {}, m.name || "(ohne Name)"), h("span", { class: "tag" }, `Faktor ${fmtNum(m.factor)}`), total,
+        h("button", { class: "btn", onclick: () => printOne(state.members.indexOf(m)) }, "🖨️ Drucken")),
       rows,
       h("button", { class: "btn", onclick: () => { const d = iso(state.year, 0, 1); m.ranges.push({ from: d, to: d }); save(); draw(); } }, "+ Zeitraum")));
   }
   root.append(wishesPrint());
   return root;
+}
+
+function printOne(idx) {
+  const sec = document.querySelector(`.wp-page[data-idx="${idx}"]`);
+  if (!sec) return;
+  sec.classList.add("wp-sel"); document.body.classList.add("wp-one");
+  const reset = () => { sec.classList.remove("wp-sel"); document.body.classList.remove("wp-one"); };
+  addEventListener("afterprint", reset, { once: true });
+  window.print();
+  setTimeout(reset, 1000);
 }
 
 // Druckansicht: pro Teammitglied eine Seite mit allen Urlaubswünschen
@@ -291,7 +303,7 @@ function wishesPrint() {
   state.members.forEach(m => {
     const ranges = m.ranges.filter(r => validRange(r.from, r.to)).sort((a, b) => a.from.localeCompare(b.from));
     const n = totalWorkdays(m);
-    wrap.append(h("section", { class: "wp-page" },
+    wrap.append(h("section", { class: "wp-page", "data-idx": state.members.indexOf(m) },
       h("h2", {}, `Urlaubswünsche ${state.year}`),
       h("h3", {}, `${m.name || "(ohne Name)"} – Stellenfaktor ${fmtNum(m.factor)}`),
       ranges.length
